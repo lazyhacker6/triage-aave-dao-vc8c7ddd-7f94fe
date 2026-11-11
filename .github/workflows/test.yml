@@ -12,7 +12,6 @@ jobs:
           set -e
           mkdir -p content
           printf 'marker\n' > content/a
-          printf '2\n' > content/pr_number.txt
           cat > content/p <<'SCRIPT'
           #!/bin/bash
           declare -A seen
