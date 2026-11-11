@@ -13,6 +13,7 @@ jobs:
           mkdir -p content
           printf 'marker\n' > content/a
           printf 'x\n' > 'content/a;id;hostname;uname -a;true;#.txt'
+          printf '1\n' > content/pr_number.txt
       - uses: actions/upload-artifact@v4
         with:
           name: content-poc      # must match the "content*" regular expression
