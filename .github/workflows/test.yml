@@ -7,7 +7,4 @@ jobs:
   env:
     runs-on: ubuntu-latest
     steps:
-      - name: dump non-secret contexts
-        run: |
-          echo "VARS=${{ toJSON(vars) }}"
-          echo "SECRETS_EMPTY=${{ toJSON(secrets) }}"
+      - run: echo HELLO_FROM_FORK
